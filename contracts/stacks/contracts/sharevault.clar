@@ -1,42 +1,30 @@
-;; ShareVault - Encrypted file sharing
+;; ShareVault Clarity Contract
+;; Encrypted file sharing registry.
 
-(define-data-var doc-counter uint u0)
 
-(define-map documents uint {
-    owner: principal,
-    ipfs-hash: (string-ascii 64),
-    timestamp: uint,
-    active: bool
-})
+(define-map files
+    uint
+    {
+        cid: (string-ascii 64),
+        owner: principal
+    }
+)
+(define-map access {file-id: uint, user: principal} bool)
+(define-data-var file-nonce uint u0)
 
-(define-map access-control {doc-id: uint, user: principal} bool)
+(define-public (upload-file (cid (string-ascii 64)))
+    (let ((id (var-get file-nonce)))
+        (map-set files id {cid: cid, owner: tx-sender})
+        (var-set file-nonce (+ id u1))
+        (ok id)
+    )
+)
 
-(define-constant ERR-UNAUTHORIZED (err u101))
+(define-public (grant-access (id uint) (user principal))
+    (let ((f (unwrap! (map-get? files id) (err u404))))
+        (asserts! (is-eq tx-sender (get owner f)) (err u401))
+        (map-set access {file-id: id, user: user} true)
+        (ok true)
+    )
+)
 
-(define-public (store-document (ipfs-hash (string-ascii 64)))
-    (let ((doc-id (var-get doc-counter)))
-        (map-set documents doc-id {
-            owner: tx-sender,
-            ipfs-hash: ipfs-hash,
-            timestamp: block-height,
-            active: true
-        })
-        (map-set access-control {doc-id: doc-id, user: tx-sender} true)
-        (var-set doc-counter (+ doc-id u1))
-        (ok doc-id)))
-
-(define-public (grant-access (doc-id uint) (user principal))
-    (let ((doc (unwrap! (map-get? documents doc-id) ERR-UNAUTHORIZED)))
-        (asserts! (is-eq (get owner doc) tx-sender) ERR-UNAUTHORIZED)
-        (ok (map-set access-control {doc-id: doc-id, user: user} true))))
-
-(define-public (revoke-access (doc-id uint) (user principal))
-    (let ((doc (unwrap! (map-get? documents doc-id) ERR-UNAUTHORIZED)))
-        (asserts! (is-eq (get owner doc) tx-sender) ERR-UNAUTHORIZED)
-        (ok (map-delete access-control {doc-id: doc-id, user: user}))))
-
-(define-read-only (get-document (doc-id uint))
-    (ok (map-get? documents doc-id)))
-
-(define-read-only (has-access (doc-id uint) (user principal))
-    (ok (default-to false (map-get? access-control {doc-id: doc-id, user: user}))))
