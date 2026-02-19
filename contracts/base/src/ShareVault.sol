@@ -2,8 +2,11 @@
 pragma solidity ^0.8.20;
 
 /// @title ShareVault Contract
+/// @author solidworkssa
 /// @notice Encrypted file sharing registry.
 contract ShareVault {
+    string public constant VERSION = "1.0.0";
+
 
     struct FileAccess {
         string cid;
