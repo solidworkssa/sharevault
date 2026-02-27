@@ -28,7 +28,7 @@
 
 (define-public (upload-file (cid (string-ascii 64)))
     (let ((id (var-get file-nonce)))
-        (map-set files id {cid: cid, owner: tx-sender})
+        (map-set files id {cid: cid, owner: contract-caller})
         (var-set file-nonce (+ id u1))
         (ok id)
     )
@@ -36,7 +36,7 @@
 
 (define-public (grant-access (id uint) (user principal))
     (let ((f (unwrap! (map-get? files id) (err u404))))
-        (asserts! (is-eq tx-sender (get owner f)) (err u401))
+        (asserts! (is-eq contract-caller (get owner f)) (err u401))
         (map-set access {file-id: id, user: user} true)
         (ok true)
     )
